@@ -44,7 +44,7 @@ async function copyText(text) {
   return success;
 }
 
-export default function AddyCard({ post, onReact, onCopy, index = 0 }) {
+export default function AddyCard({ post, onReact, onCopy, onLinkCopied, index = 0 }) {
   const [copied, setCopied] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [qrFlip, setQrFlip] = useState(false);
@@ -67,7 +67,7 @@ export default function AddyCard({ post, onReact, onCopy, index = 0 }) {
     const success = await copyText(url);
 
     if (success) {
-      alert('Profile link copied!');
+      onLinkCopied?.();
     } else {
       alert(`Copy this link:\n${url}`);
     }

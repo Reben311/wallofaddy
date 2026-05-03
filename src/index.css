@@ -117,7 +117,7 @@ button {
   flex: 1;
   min-height: calc(100svh - 106px);
   border-radius: 20px;
-  padding: 28px 48px 40px;
+  padding: 28px 48px 100px;
   position: relative;
   display: flex;
   flex-direction: column;
@@ -385,12 +385,13 @@ button {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 8px 0;
+  padding: 16px 0 8px;
   z-index: 1;
+  background: linear-gradient(180deg, rgba(6,6,8,0) 0%, rgba(6,6,8,.8) 40%, rgba(6,6,8,.95) 100%);
 }
 
 .footer-pill-wrap span {
-  height: 36px;
+  height: 20px;
   padding: 0 24px;
   color: rgba(255,255,255,.6);
   letter-spacing: .8px;
@@ -1269,5 +1270,193 @@ button {
   .hero-pills span {
     flex: 1 1 auto;
     justify-content: center;
+  }
+}
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.nav-link-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+}
+
+.nav-brand-link {
+  text-decoration: none;
+}
+
+.generate-page-main {
+  min-height: calc(100svh - 106px);
+}
+
+.generate-page-hero {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  text-align: center;
+  padding: 8px 0 10px;
+}
+
+.generate-page-hero h1 {
+  font-size: clamp(40px, 6vw, 76px);
+  font-weight: 400;
+  line-height: 1;
+  color: #fff;
+}
+
+.generate-page-hero h1 span {
+  color: var(--orange);
+  text-shadow: 0 0 34px rgba(255,115,0,.36);
+}
+
+.generate-page-hero p {
+  margin: 14px auto 14px;
+  max-width: 480px;
+  color: rgba(255,255,255,.64);
+  font-size: 12px;
+  line-height: 1.7;
+  letter-spacing: .35px;
+}
+
+.generate-eyebrow {
+  color: var(--orange) !important;
+  font-size: 11px !important;
+  letter-spacing: 2px !important;
+  text-transform: uppercase;
+  margin-bottom: 10px !important;
+}
+
+.generate-tip-layout {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(280px, 420px) minmax(320px, 560px);
+  justify-content: center;
+  align-items: start;
+  gap: 18px;
+  width: 100%;
+  margin-top: 8px;
+}
+
+.generate-form-card,
+.generate-preview-panel {
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,.15);
+  background:
+    linear-gradient(145deg, rgba(255,255,255,.10) 0%, rgba(255,255,255,.035) 50%, rgba(0,0,0,.12) 100%),
+    rgba(18,18,24,.64);
+  backdrop-filter: blur(34px) saturate(180%);
+  box-shadow:
+    inset 0 1.5px 0 rgba(255,255,255,.16),
+    0 24px 60px rgba(0,0,0,.45);
+}
+
+.generate-form-card {
+  padding: 24px;
+}
+
+.generate-preview-panel {
+  padding: 18px;
+}
+
+.generate-form-header {
+  margin-bottom: 18px;
+}
+
+.tip-card-preview {
+  width: 100%;
+}
+
+.generate-success {
+  margin-top: 12px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  border: 1px solid rgba(255,115,0,.28);
+  background: rgba(255,115,0,.08);
+  color: var(--orange);
+  font-size: 11px;
+  letter-spacing: .8px;
+}
+
+.generate-actions button:disabled {
+  opacity: .45;
+  cursor: not-allowed;
+}
+
+.generate-wall-link {
+  height: 42px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.16);
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04)),
+    rgba(255,255,255,.04);
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.generate-actions button:nth-child(2) {
+  border-color: rgba(255,115,0,.42);
+  background:
+    linear-gradient(180deg, rgba(255,115,0,.34), rgba(255,115,0,.16)),
+    rgba(255,115,0,.10);
+}
+
+@media (max-width: 900px) {
+  .generate-tip-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .generate-page-hero {
+    text-align: left;
+    justify-content: flex-start;
+  }
+
+  .generate-page-hero p {
+    margin-left: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .top-nav {
+    align-items: flex-start;
+  }
+
+  .nav-actions {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+  }
+
+  .nav-actions .post-button {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 10px;
+  }
+
+  .generate-form-card,
+  .generate-preview-panel {
+    padding: 14px;
+    border-radius: 20px;
+  }
+
+  .generate-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .share-post-box {
+    flex-direction: column;
+    text-align: center;
   }
 }

@@ -6,6 +6,7 @@ import AddyCard from './components/AddyCard';
 import RandomCard from './components/RandomCard';
 import PostModal from './components/PostModal';
 import { supabase } from './lib/supabase';
+import GenerateTipCard from './pages/GenerateTipCard';
 
 const REFRESH_MS = 10 * 60 * 1000;
 const MAX_POSTS = 18;
@@ -115,7 +116,7 @@ function HeroDecor() {
   );
 }
 
-function ShareCardModal({ post, onClose, onOpenSharedPost }) {
+function ShareCardModal({ post, onClose, onOpenSharedPost, onLinkCopied }) {
   const cardRef = useRef(null);
 
   if (!post) return null;
@@ -150,7 +151,7 @@ function ShareCardModal({ post, onClose, onOpenSharedPost }) {
     const success = await copyText(postUrl);
 
     if (success) {
-      alert('Share link copied!');
+      onLinkCopied?.();
     } else {
       alert(`Copy this link:\n${postUrl}`);
     }
@@ -235,7 +236,7 @@ function ShareCardModal({ post, onClose, onOpenSharedPost }) {
   );
 }
 
-function SharedPostModal({ open, post, loading, onClose, onReact, onCopy }) {
+function SharedPostModal({ open, post, loading, onClose, onReact, onCopy, onLinkCopied }) {
   if (!open) return null;
 
   const postUrl = post ? `${window.location.origin}/post/${post.id}` : window.location.href;
@@ -244,7 +245,7 @@ function SharedPostModal({ open, post, loading, onClose, onReact, onCopy }) {
     const success = await copyText(postUrl);
 
     if (success) {
-      alert('Share link copied!');
+      onLinkCopied?.();
     } else {
       alert(`Copy this link:\n${postUrl}`);
     }
@@ -291,6 +292,7 @@ function SharedPostModal({ open, post, loading, onClose, onReact, onCopy }) {
                 post={post}
                 onReact={onReact}
                 onCopy={onCopy}
+                onLinkCopied={onLinkCopied}
                 index={0}
                 isNew={false}
               />
@@ -304,24 +306,32 @@ function SharedPostModal({ open, post, loading, onClose, onReact, onCopy }) {
   );
 }
 
-export default function App() {
+function WallApp() {
   const [posts, setPosts] = useState([]);
   const [wallPosts, setWallPosts] = useState([]);
   const [currentRandom, setCurrentRandom] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [newPostIds, setNewPostIds] = useState(new Set());
   const [copyToast, setCopyToast] = useState(false);
+  const [linkCopyToast, setLinkCopyToast] = useState(false);
   const [selectedPostId, setSelectedPostId] = useState(null);
   const [sharedPostModalOpen, setSharedPostModalOpen] = useState(false);
   const [lastPostedPost, setLastPostedPost] = useState(null);
   const [loadingPosts, setLoadingPosts] = useState(true);
 
   const copyTimerRef = useRef(null);
+  const linkCopyTimerRef = useRef(null);
 
   const showCopyToast = useCallback(() => {
     setCopyToast(true);
     window.clearTimeout(copyTimerRef.current);
     copyTimerRef.current = window.setTimeout(() => setCopyToast(false), 1600);
+  }, []);
+
+  const showLinkCopyToast = useCallback(() => {
+    setLinkCopyToast(true);
+    window.clearTimeout(linkCopyTimerRef.current);
+    linkCopyTimerRef.current = window.setTimeout(() => setLinkCopyToast(false), 1600);
   }, []);
 
   const refreshWall = useCallback((allPosts) => {
@@ -507,6 +517,19 @@ export default function App() {
             </motion.div>
           </div>
         )}
+        {linkCopyToast && (
+          <div className="copy-toast-wrap">
+            <motion.div
+              className="copy-toast"
+              initial={{ opacity: 0, y: -16, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            >
+              <span>✓</span> Link copied
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
 
       <motion.nav
@@ -517,14 +540,20 @@ export default function App() {
       >
         <span className="brand-name">Wall of Addy</span>
 
-        <motion.button
-          className="post-button"
-          onClick={() => setModalOpen(true)}
-          whileHover={{ y: -2, scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-        >
-          + Post Addy
-        </motion.button>
+<div className="nav-actions">
+  <a href="/generate-tip-card" className="post-button nav-link-button">
+    Generate Tip Card
+  </a>
+
+  <motion.button
+    className="post-button"
+    onClick={() => setModalOpen(true)}
+    whileHover={{ y: -2, scale: 1.02 }}
+    whileTap={{ scale: 0.97 }}
+  >
+    + Post Addy
+  </motion.button>
+</div>
       </motion.nav>
 
       <motion.main
@@ -603,6 +632,7 @@ export default function App() {
                 post={post}
                 onReact={handleReact}
                 onCopy={showCopyToast}
+                onLinkCopied={showLinkCopyToast}
                 index={i}
                 isNew={newPostIds.has(post.id)}
               />
@@ -627,6 +657,7 @@ export default function App() {
         post={lastPostedPost}
         onClose={() => setLastPostedPost(null)}
         onOpenSharedPost={openSharedPostModal}
+        onLinkCopied={showLinkCopyToast}
       />
 
       <SharedPostModal
@@ -636,7 +667,17 @@ export default function App() {
         onClose={closeSharedPostModal}
         onReact={handleReact}
         onCopy={showCopyToast}
+        onLinkCopied={showLinkCopyToast}
       />
     </div>
   );
+}
+export default function App() {
+  const path = window.location.pathname;
+
+  if (path === '/generate-tip-card') {
+    return <GenerateTipCard />;
+  }
+
+  return <WallApp />;
 }
