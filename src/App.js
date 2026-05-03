@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { QRCodeCanvas } from 'qrcode.react';
+import { toPng } from 'html-to-image';
 import AddyCard from './components/AddyCard';
 import RandomCard from './components/RandomCard';
 import PostModal from './components/PostModal';
@@ -10,11 +12,48 @@ const MAX_POSTS = 18;
 
 function shuffle(arr) {
   const a = [...arr];
+
   for (let i = a.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
+
   return a;
+}
+
+async function copyText(text) {
+  if (!text) return false;
+
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (err) {
+      console.warn('Clipboard API failed. Using fallback.', err);
+    }
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  textarea.setAttribute('readonly', '');
+
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  let success = false;
+
+  try {
+    success = document.execCommand('copy');
+  } catch (err) {
+    console.error('Fallback copy failed:', err);
+  }
+
+  document.body.removeChild(textarea);
+  return success;
 }
 
 function HeroDecor() {
@@ -76,35 +115,207 @@ function HeroDecor() {
   );
 }
 
+function ShareCardModal({ post, onClose, onOpenSharedPost }) {
+  const cardRef = useRef(null);
+
+  if (!post) return null;
+
+  const postUrl = `${window.location.origin}/post/${post.id}`;
+  const shortAddress =
+    post.btc_address?.length > 16
+      ? `${post.btc_address.slice(0, 8)}...${post.btc_address.slice(-6)}`
+      : post.btc_address;
+
+  const downloadCard = async () => {
+    if (!cardRef.current) return;
+
+    try {
+      const dataUrl = await toPng(cardRef.current, {
+        cacheBust: true,
+        pixelRatio: 3,
+        backgroundColor: '#07070a',
+      });
+
+      const link = document.createElement('a');
+      link.download = `wall-of-addy-${post.nickname || 'anon'}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (error) {
+      console.error('Failed to export share card:', error);
+      alert('Could not download PNG.');
+    }
+  };
+
+  const handleCopyLink = async () => {
+    const success = await copyText(postUrl);
+
+    if (success) {
+      alert('Share link copied!');
+    } else {
+      alert(`Copy this link:\n${postUrl}`);
+    }
+  };
+
+  const handleOpenPost = () => {
+    window.history.pushState({}, '', `/post/${post.id}`);
+    onOpenSharedPost(post.id);
+    onClose();
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="share-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <motion.div
+          className="share-modal"
+          initial={{ opacity: 0, scale: 0.92, y: 24 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.92, y: 24 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+        >
+          <button className="share-close" onClick={onClose}>✕</button>
+
+          <div ref={cardRef} className="share-card-preview">
+            <div className="share-logo-mini">W</div>
+
+            <p className="share-eyebrow">Wall of Addy</p>
+
+            <h2>
+              I dropped my addy<br />
+              on <span>Wall of Addy.</span>
+            </h2>
+
+            <p className="share-subtitle">
+              Turn your BTC address into a shareable tip card.
+            </p>
+
+            <div className="share-post-box">
+              <div>
+                <strong>@{post.nickname || 'anon'}</strong>
+                <p>{shortAddress}</p>
+                <small>{post.message || 'leave sats'}</small>
+              </div>
+
+              <div className="share-qr-real">
+                <QRCodeCanvas
+                  value={postUrl}
+                  size={96}
+                  bgColor="#ffffff"
+                  fgColor="#111111"
+                  level="H"
+                  includeMargin={true}
+                />
+              </div>
+            </div>
+
+            <div className="share-card-footer">
+              <span>No signup</span>
+              <span>Free to post</span>
+              <span>Share your link</span>
+            </div>
+          </div>
+
+          <div className="share-actions">
+            <button onClick={handleCopyLink}>Copy link</button>
+            <button onClick={downloadCard}>Download PNG</button>
+            <button onClick={handleOpenPost}>Open post</button>
+          </div>
+
+          <p className="share-url">{postUrl}</p>
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
+function SharedPostModal({ open, post, loading, onClose, onReact, onCopy }) {
+  if (!open) return null;
+
+  const postUrl = post ? `${window.location.origin}/post/${post.id}` : window.location.href;
+
+  const handleCopyLink = async () => {
+    const success = await copyText(postUrl);
+
+    if (success) {
+      alert('Share link copied!');
+    } else {
+      alert(`Copy this link:\n${postUrl}`);
+    }
+  };
+
+  return (
+    <AnimatePresence>
+      <motion.div
+        className="shared-post-modal-backdrop"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <motion.div
+          className="shared-post-modal"
+          initial={{ opacity: 0, scale: 0.94, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.94, y: 20 }}
+          transition={{ type: 'spring', stiffness: 280, damping: 24 }}
+        >
+          <button className="share-close" onClick={onClose}>✕</button>
+
+          <div className="shared-post-header-row">
+            <div>
+              <span className="shared-post-label">Shared Addy</span>
+              <h3>Wall of Addy</h3>
+            </div>
+
+            {!loading && post && (
+              <button className="shared-post-copy-link" onClick={handleCopyLink}>
+                Copy link
+              </button>
+            )}
+          </div>
+
+          {loading ? (
+            <div className="shared-post-state">Loading shared post...</div>
+          ) : post ? (
+            <div className="shared-post-card-wrap">
+              <AddyCard
+                post={post}
+                onReact={onReact}
+                onCopy={onCopy}
+                index={0}
+                isNew={false}
+              />
+            </div>
+          ) : (
+            <div className="shared-post-state">This post was not found.</div>
+          )}
+        </motion.div>
+      </motion.div>
+    </AnimatePresence>
+  );
+}
+
 export default function App() {
-  const fetchPosts = useCallback(async () => {
-  setLoading(true);
-
-  const { data, error } = await supabase
-    .from('addy_posts')
-    .select('*')
-    .order('created_at', { ascending: false });
-
-  if (error) {
-    console.error('Error fetching posts:', error.message);
-    setLoading(false);
-    return;
-  }
-
-  const realPosts = data || [];
-
-  setPosts(realPosts);
-  setWallPosts(shuffle(realPosts).slice(0, MAX_POSTS));
-  setCurrentRandom(shuffle(realPosts)[0] || null);
-  setLoading(false);
-}, []);
-const [posts, setPosts] = useState([]);
-const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState([]);
   const [wallPosts, setWallPosts] = useState([]);
   const [currentRandom, setCurrentRandom] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [newPostIds, setNewPostIds] = useState(new Set());
   const [copyToast, setCopyToast] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState(null);
+  const [sharedPostModalOpen, setSharedPostModalOpen] = useState(false);
+  const [lastPostedPost, setLastPostedPost] = useState(null);
+  const [loadingPosts, setLoadingPosts] = useState(true);
+
   const copyTimerRef = useRef(null);
 
   const showCopyToast = useCallback(() => {
@@ -123,28 +334,61 @@ const [loading, setLoading] = useState(true);
     setCurrentRandom(shuffle(pool)[0] || null);
   }, []);
 
-useEffect(() => {
-  fetchPosts();
+  const fetchPosts = useCallback(async () => {
+    setLoadingPosts(true);
 
-  const channel = supabase
-    .channel('addy-posts-changes')
-    .on(
-      'postgres_changes',
-      {
-        event: '*',
-        schema: 'public',
-        table: 'addy_posts',
-      },
-      () => {
-        fetchPosts();
+    const { data, error } = await supabase
+      .from('addy_posts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching posts:', error.message);
+      setLoadingPosts(false);
+      return;
+    }
+
+    const realPosts = data || [];
+
+    setPosts(realPosts);
+    setWallPosts(shuffle(realPosts).slice(0, MAX_POSTS));
+    setCurrentRandom(shuffle(realPosts)[0] || null);
+    setLoadingPosts(false);
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+
+    const channel = supabase
+      .channel('addy-posts-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'addy_posts',
+        },
+        () => fetchPosts()
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchPosts]);
+
+  useEffect(() => {
+    const path = window.location.pathname;
+
+    if (path.startsWith('/post/')) {
+      const id = decodeURIComponent(path.replace('/post/', '').trim());
+
+      if (id) {
+        setSelectedPostId(id);
+        setSharedPostModalOpen(true);
       }
-    )
-    .subscribe();
-
-  return () => {
-    supabase.removeChannel(channel);
-  };
-}, [fetchPosts]);
+    }
+  }, []);
 
   useEffect(() => {
     const wallTimer = window.setInterval(() => refreshWall(posts), REFRESH_MS);
@@ -160,115 +404,108 @@ useEffect(() => {
     return () => window.clearTimeout(copyTimerRef.current);
   }, []);
 
-  useEffect(() => {
-    if (!navigator?.clipboard?.writeText) return undefined;
+  const openSharedPostModal = (id) => {
+    if (!id) return;
+    setSelectedPostId(id);
+    setSharedPostModalOpen(true);
+  };
 
-    const clipboard = navigator.clipboard;
-    const originalWriteText = clipboard.writeText.bind(clipboard);
+  const closeSharedPostModal = () => {
+    window.history.pushState({}, '', '/');
+    setSelectedPostId(null);
+    setSharedPostModalOpen(false);
+  };
 
-    try {
-      clipboard.writeText = async (text) => {
-        const result = await originalWriteText(text);
+  const selectedSharedPost = posts.find((p) => p.id === selectedPostId) || null;
 
-        if (typeof text === 'string' && text.trim().length > 10) {
-          showCopyToast();
-        }
+  const handleSubmit = async ({ btc_address, nickname, message }) => {
+    const newPostPayload = {
+      btc_address,
+      nickname,
+      message,
+      reactions: { '🔥': 0, '⚡': 0, '💜': 0, '🙌': 0, '👑': 0, '💎': 0 },
+    };
 
-        return result;
-      };
+    const { data, error } = await supabase
+      .from('addy_posts')
+      .insert([newPostPayload])
+      .select()
+      .single();
 
-      return () => {
-        clipboard.writeText = originalWriteText;
-      };
-    } catch (error) {
-      return undefined;
+    if (error) {
+      console.error('Error posting addy:', error.message);
+      alert('Failed to post addy. Check Supabase settings.');
+      return null;
     }
-  }, [showCopyToast]);
 
-const handleSubmit = async ({ btc_address, nickname, message }) => {
-  const newPostPayload = {
-    btc_address,
-    nickname,
-    message,
-    reactions: { '🔥': 0, '⚡': 0, '💜': 0, '🙌': 0, '👑': 0, '💎': 0 },
-  };
-
-  const { data, error } = await supabase
-    .from('addy_posts')
-    .insert([newPostPayload])
-    .select()
-    .single();
-
-  if (error) {
-    console.error('Error posting addy:', error.message);
-    alert('Failed to post addy. Check Supabase settings.');
-    return;
-  }
-
-  setPosts(prev => {
-    const updated = [data, ...prev];
-    setWallPosts(shuffle(updated).slice(0, MAX_POSTS));
-    return updated;
-  });
-
-  setCurrentRandom(prev => prev || data);
-
-  setNewPostIds(prev => new Set([...prev, data.id]));
-
-  window.setTimeout(() => {
-    setNewPostIds(prev => {
-      const s = new Set(prev);
-      s.delete(data.id);
-      return s;
+    setPosts((prev) => {
+      const updated = [data, ...prev];
+      setWallPosts(shuffle(updated).slice(0, MAX_POSTS));
+      return updated;
     });
-  }, 3000);
-};
 
-const handleReact = async (id, emoji) => {
-  const targetPost = posts.find(p => p.id === id);
-  if (!targetPost) return;
+    setCurrentRandom((prev) => prev || data);
 
-  const updatedReactions = {
-    ...(targetPost.reactions || {}),
-    [emoji]: ((targetPost.reactions || {})[emoji] || 0) + 1,
+    window.setTimeout(() => {
+      setLastPostedPost(data);
+    }, 1200);
+
+    setNewPostIds((prev) => new Set([...prev, data.id]));
+
+    window.setTimeout(() => {
+      setNewPostIds((prev) => {
+        const s = new Set(prev);
+        s.delete(data.id);
+        return s;
+      });
+    }, 3000);
+
+    return data;
   };
 
-  const { error } = await supabase
-    .from('addy_posts')
-    .update({ reactions: updatedReactions })
-    .eq('id', id);
+  const handleReact = async (id, emoji) => {
+    const targetPost = posts.find(p => p.id === id);
+    if (!targetPost) return;
 
-  if (error) {
-    console.error('Error updating reaction:', error.message);
-    return;
-  }
+    const updatedReactions = {
+      ...(targetPost.reactions || {}),
+      [emoji]: ((targetPost.reactions || {})[emoji] || 0) + 1,
+    };
 
-  setPosts(prev =>
-    prev.map(p =>
-      p.id === id ? { ...p, reactions: updatedReactions } : p
-    )
-  );
+    const { error } = await supabase
+      .from('addy_posts')
+      .update({ reactions: updatedReactions })
+      .eq('id', id);
 
-  setWallPosts(prev =>
-    prev.map(p =>
-      p.id === id ? { ...p, reactions: updatedReactions } : p
-    )
-  );
-};
+    if (error) {
+      console.error('Error updating reaction:', error.message);
+      return;
+    }
+
+    setPosts(prev =>
+      prev.map(p => p.id === id ? { ...p, reactions: updatedReactions } : p)
+    );
+
+    setWallPosts(prev =>
+      prev.map(p => p.id === id ? { ...p, reactions: updatedReactions } : p)
+    );
+  };
 
   return (
     <div className="app-shell">
       <AnimatePresence>
         {copyToast && (
-          <motion.div
-            className="copy-toast"
-            initial={{ opacity: 0, y: -16, scale: 0.94 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -16, scale: 0.94 }}
-            transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-          >
-            <span>✓</span> Addy copied
-          </motion.div>
+          <div className="copy-toast-wrap">
+            <motion.div
+              className="copy-toast"
+              initial={{ opacity: 0, y: -16, scale: 0.94 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -16, scale: 0.94 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+            >
+              <span>✓</span> Addy copied
+            </motion.div>
+          </div>
         )}
       </AnimatePresence>
 
@@ -318,8 +555,8 @@ const handleReact = async (id, emoji) => {
             </h1>
 
             <p>
-              A public Bitcoin address board where anyone can post their addy,
-              leave a message, and maybe receive some sats.
+                Turn your BTC address into a shareable tip card. Post your addy,
+  leave a message, and maybe catch some sats.
             </p>
 
             <div className="hero-pills">
@@ -350,6 +587,14 @@ const handleReact = async (id, emoji) => {
           Wall refreshes every 10 minutes
         </div>
 
+        {loadingPosts && (
+          <div className="empty-state">Loading addys...</div>
+        )}
+
+        {!loadingPosts && wallPosts.length === 0 && (
+          <div className="empty-state">No addys yet. Be the first one on the wall.</div>
+        )}
+
         <motion.div layout className="wall-grid">
           <AnimatePresence>
             {wallPosts.map((post, i) => (
@@ -365,15 +610,32 @@ const handleReact = async (id, emoji) => {
           </AnimatePresence>
         </motion.div>
 
-        <div className="footer-pill-wrap">
-          <span>No signups. No profiles. Just addys and sats.</span>
-        </div>
+<div className="footer-pill-wrap">
+  <span>
+    Wall of Addy never holds crypto. QR codes are generated directly from user-submitted BTC addresses.
+  </span>
+</div>
       </motion.main>
 
       <PostModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         onSubmit={handleSubmit}
+      />
+
+      <ShareCardModal
+        post={lastPostedPost}
+        onClose={() => setLastPostedPost(null)}
+        onOpenSharedPost={openSharedPostModal}
+      />
+
+      <SharedPostModal
+        open={sharedPostModalOpen}
+        post={selectedSharedPost}
+        loading={loadingPosts}
+        onClose={closeSharedPostModal}
+        onReact={handleReact}
+        onCopy={showCopyToast}
       />
     </div>
   );
